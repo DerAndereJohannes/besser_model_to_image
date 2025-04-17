@@ -21,11 +21,17 @@ def model_to_image(model: DomainModel, layout_engine: str = 'neato', file_format
                               'ranksep': '1'},
                   node_attr={'shape': 'record'},
                   edge_attr={'len': '3',
-                             'labelfontsize': '16'})
+                             'labelfontsize': '16',
+                             # 'labeldistance': '3'
+                             })
 
     # Handle Classes, Properties and Methods
     for cls in model.get_classes():
-        node_label = f'{{{cls.name}|'
+        if cls.is_abstract:
+            node_label = f'{{«abstract»\\n{cls.name}|'
+        else:
+            node_label = f'{{{cls.name}|'
+
         # Add Properties
         for prop in cls.attributes:
             node_label += f'{VISIBILITY_MAP[prop.visibility]} {prop.name} : {prop.type.name}\\l'
@@ -34,9 +40,7 @@ def model_to_image(model: DomainModel, layout_engine: str = 'neato', file_format
             node_label += '|'
         # Add Methods
         for method in cls.methods:
-            node_label += handle_mathod_label(method)
-            # print(method)
-
+            node_label += handle_mathod_label(method, cls.is_abstract)
 
         node_label += '}'
 
@@ -57,7 +61,7 @@ def model_to_image(model: DomainModel, layout_engine: str = 'neato', file_format
     for g in model.generalizations:
         dot.edge(g.specific.name, g.general.name,
                  arrowhead='empty',
-                 len='1.5')
+                 len='2.5')
 
     # Handle Associations
     for a in model.associations:
@@ -78,8 +82,7 @@ def model_to_image(model: DomainModel, layout_engine: str = 'neato', file_format
         dot.edge(source.type.name, sink.type.name,
                  arrowhead=arrow_head,
                  taillabel=f'{source.name} {handle_multiplicity_label(source.multiplicity)}',
-                 headlabel=f'{sink.name} {handle_multiplicity_label(sink.multiplicity)}',
-                 labeldistance='2')
+                 headlabel=f'{sink.name} {handle_multiplicity_label(sink.multiplicity)}')
 
     # Handle Rendering
     dot.render(model.name, format=file_format, view=view)
@@ -94,7 +97,7 @@ def handle_multiplicity_label(multiplicity: Multiplicity, asterisk_value: int = 
     else:
         return f'({min_value}...{max_value})'
 
-def handle_mathod_label(method: Method) -> str:
+def handle_mathod_label(method: Method, cls_is_abstract: bool) -> str:
     # f'{VISIBILITY_MAP[method.visibility]} {method.name}() : {method.type}\\l'
 
     output_type = 'void' if not method.type else method.type.name
@@ -103,7 +106,13 @@ def handle_mathod_label(method: Method) -> str:
     for param in method.parameters:
         method_label += f'{param.name}: {param.type.name}'
 
-    method_label += f'): {output_type}\\l'
+    method_label += f'): {output_type}'
+
+    if method.is_abstract and cls_is_abstract:
+        method_label += '«abstract»'
+
+    method_label += '\\l'
+
     return method_label
 
 if __name__ == '__main__':
@@ -168,9 +177,13 @@ if __name__ == '__main__':
     gen_hardcover_book: Generalization = Generalization(general=book, specific=hardcover)
 
     # Loan system example
-    member: Class = Class(name='Member')
+    member: Class = Class(name='Member', is_abstract=True)
     loan: Class = Class(name='Loan')
+    student: Class = Class(name='Student')
+    others: Class = Class(name='Others')
 
+    gen_student_member: Generalization = Generalization(general=member, specific=student)
+    gen_others_member: Generalization = Generalization(general=member, specific=others)
 
     # Loan attributes definition
     public: Property = Property(name='public', type=StringType)
@@ -193,18 +206,21 @@ if __name__ == '__main__':
 
     # method example
     member_get_name: Method = Method(name='getName', type=StringType)
-    member_calculate_something: Method = Method(name='calculateSth', parameters={Parameter(name='sth', type=StringType)}, type=IntegerType, visibility='private')
+    member_calculate_something: Method = Method(name='calculateSth', parameters={Parameter(name='sth', type=StringType)}, type=IntegerType, visibility='private', is_abstract=True)
     member_protected: Method = Method(name='protect', parameters={Parameter(name='sth', type=DateType)}, visibility='protected')
     member_package: Method = Method(name='package', visibility='package')
 
     member.methods = {member_get_name, member_calculate_something, member_protected, member_package}
 
+    student.methods = {member_calculate_something}
+    others.methods = {member_calculate_something}
+
     # Domain model definition
     library_model: DomainModel = DomainModel(
-            name='Library_model', types={library, book, author, book_genre, loan, member},
+            name='Library_model', types={library, book, author, book_genre, loan, member, student, others},
             associations={lib_book_association, book_author_association, book_loan_association, loan_member_association},
-            generalizations={gen_fiction_book, gen_nonfiction_book, gen_ebook_book, gen_hardcover_book},
+            generalizations={gen_fiction_book, gen_nonfiction_book, gen_ebook_book, gen_hardcover_book, gen_student_member, gen_others_member},
     )
 
-    model_to_image(library_model, layout_engine='dot')
+    model_to_image(library_model, layout_engine='dot', view=True)
 

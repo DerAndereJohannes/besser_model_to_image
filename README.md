@@ -7,4 +7,10 @@ This repository shows an implementation of how this function could look like in 
 In addition to the besser dependency, this solution also requires the python graphviz package and for graphviz to be installed directly on the main system to render it. See more information on which dependencies were used for the following examples in `requirements.txt`
 
 # Examples
+Here are a few examples of a library example that I used for testing the function each with different layout engines:
 
+## Dot
+![Screenshot of dot layout example](/Library_model_dot.png)
+
+## Neato
+![Screenshot of neato layout example](/Library_model_neato.png)
